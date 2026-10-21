@@ -1,0 +1,38 @@
+# Cloudflare Worker 設定範本（里歐烘焙坊的五個工位 + 訂單頁共用這一個 Worker）。
+# 帶「# 你要改」的地方，叫 Claude Code 照你的帳號填。
+name = "leo-bakery"                 # 🔴 不要改：Worker 名字固定是【leo-bakery】，上午在 Cloudflare 建的 Worker 與 Telegram Secret 都掛在這個名字上
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# 店裡的「今天」固定在課程當天，劇本才跑得一樣（真的公司不會有這一行）
+[vars]
+SHOP_TODAY = "2026-10-21"
+# 小模型工讀生用哪個模型（Workers AI 的小模型，免費額度內）。換模型只改這一行
+MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8"
+# Telegram：店員是誰、誰是店長（Telegram 使用者編號，不是秘密）。格式見 orders/SDD-stations.md〈Telegram〉
+TELEGRAM_STAFF = "{}"               # 你要改：例如 {"123456789":"阿德"}（名字要是 data/staff.csv 裡的員工）
+TELEGRAM_MANAGERS = ""              # 你要改：店長的 Telegram 使用者編號，多人用逗號
+# 下面這個是秘密，不能寫在這個檔案裡，也不經過 Claude：學員自己在 Cloudflare 後台填（Worker → Settings → Variables and Secrets → Secret）：
+#   TELEGRAM_BOT_TOKEN（@BotFather 給的）。只有這一個；webhook 密語由 token 算出來、網址由 Worker 自己登記給 Telegram（orders/SDD-stations.md〈Worker 自己接上 Telegram〉）
+
+# D1 資料庫（訂單、排班、日誌住這裡）。先叫 Claude Code 「幫我建一個 D1 叫 leo-bakery-db」，再把 id 填進來
+[[d1_databases]]
+binding = "DB"                      # 程式裡用 env.DB 取用，不要改
+database_name = "leo-bakery-db"
+database_id = "請填建好之後印出來的 id"   # 你要改
+
+# Workers AI（小模型工讀生）。不用另外申請金鑰，用你自己的 Cloudflare 帳號額度
+[ai]
+binding = "AI"                      # 程式裡用 env.AI 取用，不要改
+
+# 靜態檔（唯讀儀表板 orders/index.html）由同一個 Worker 提供
+[assets]
+directory = "./orders"
+binding = "ASSETS"                  # 程式裡用 env.ASSETS 取用，不要改
+run_worker_first = ["/api/*"]       # /api/ 開頭的先給程式處理，其餘才是網頁
+
+# 讓程式能直接讀 data/*.csv 與 company-data/*.md（重置資料與規則問答用）
+[[rules]]
+type = "Text"
+globs = ["**/*.csv", "**/*.md"]
+fallthrough = true

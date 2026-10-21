@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>里歐烘焙坊｜儀表板</title>
+<style>
+  :root { --bg:#fffaf3; --ink:#3b2a1e; --line:#eadfce; --accent:#b4531f; --card:#fff; --red:#b42318; --redbg:#fdecea; --ok:#2f7d32; --warn:#fff3d6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; align-items:baseline; gap:16px; padding:16px 24px; border-bottom:1px solid var(--line); background:var(--card); flex-wrap:wrap; }
+  header h1 { margin:0; font-size:20px; }
+  header .sub { color:#8a6f58; font-size:13px; }
+  main { padding:16px 24px 48px; display:grid; gap:20px; max-width:1200px; margin:0 auto; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  h2 { margin:0 0 10px; font-size:16px; display:flex; gap:10px; align-items:center; }
+  h2 small { font-weight:normal; color:#8a6f58; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th { color:#8a6f58; font-weight:600; font-size:13px; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; background:#f3ece0; }
+  .tag.s-排產中 { background:#e3f1e4; color:var(--ok); }
+  .tag.s-已取消 { background:#eee; color:#888; text-decoration:line-through; }
+  .tag.s-待收訂金 { background:var(--warn); }
+  .tag.s-已完成 { background:#e8edf5; color:#44546a; }
+  pre { margin:0; white-space:pre-wrap; font:inherit; font-size:14px; line-height:1.7; }
+  .cols { display:grid; gap:20px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .stat { display:flex; gap:20px; flex-wrap:wrap; }
+  .stat div { background:#faf4ea; border-radius:10px; padding:8px 14px; min-width:110px; }
+  .stat b { display:block; font-size:22px; }
+  .stat span { font-size:12px; color:#8a6f58; }
+  .blocked { color:var(--red); font-weight:600; }
+  #error { display:none; background:var(--redbg); color:var(--red); padding:10px 14px; border-radius:8px; }
+  .red { background:var(--redbg); color:var(--red); padding:8px 12px; border-radius:8px; font-weight:600; }
+  .ok { background:#e8f3e8; color:var(--ok); padding:8px 12px; border-radius:8px; }
+  .empty { color:#8a6f58; padding:6px 0; }
+  .kind { font-weight:600; }
+  tr.pending { background:var(--warn); }
+  .tg { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .tg .pill { display:inline-block; padding:4px 14px; border-radius:999px; font-weight:600; font-size:14px; white-space:nowrap; }
+  .tg .pill.ok { background:#e8f3e8; color:var(--ok); }
+  .tg .pill.bad { background:var(--redbg); color:var(--red); }
+  .tg .pill.wait { background:var(--warn); }
+  .tg ol { margin:0; padding-left:0; list-style:none; font-size:14px; line-height:1.8; }
+  .tg li.s-bad { color:var(--red); font-weight:600; }
+  .tg li.s-skip { color:#8a6f58; }
+</style>
+</head>
+<body>
+<header>
+  <h1>里歐烘焙坊｜儀表板</h1>
+  <span class="sub">只能看，不能按。所有操作（問、訂、打卡、核准）都在 Telegram；這一頁是 Cloudflare 上的網頁，每 15 秒自己更新。</span>
+</header>
+<main>
+  <div id="error"></div>
+
+  <section>
+    <div class="stat" id="stat"></div>
+  </section>
+
+  <section>
+    <h2>Telegram bot <small>接通了嗎</small></h2>
+    <div id="tg"></div>
+  </section>
+
+  <div class="cols">
+    <section>
+      <h2>等店長核准 <small id="pcount"></small></h2>
+      <div id="pending"></div>
+    </section>
+    <section>
+      <h2>明天的排產 <small id="sdate"></small></h2>
+      <div id="sched"></div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>老闆日報 <small id="rdate"></small></h2>
+      <pre id="report"></pre>
+    </section>
+    <section>
+      <h2>工作日誌 <small id="lcount"></small></h2>
+      <div id="logs"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>訂單 <small id="count"></small></h2>
+    <table>
+      <thead><tr><th>編號</th><th>狀態</th><th>客戶</th><th>品項</th><th>交期</th><th class="num">金額</th><th class="num">訂金</th><th>備註</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+function showError(msg) { $('error').textContent = msg; $('error').style.display = msg ? 'block' : 'none'; }
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* 不是 JSON */ }
+  if (!res.ok) throw new Error(data.error || ('伺服器回了 ' + res.status));
+  return data;
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const md = (d) => d ? Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) : '';
+const nt = (n) => Number(n).toLocaleString('en-US');
+
+function renderOrders(orders) {
+  $('count').textContent = '共 ' + orders.length + ' 張';
+  $('rows').innerHTML = orders.map((o) =>
+    '<tr><td>' + esc(o.order_id) + '</td>'
+    + '<td><span class="tag s-' + esc(o.status) + '">' + esc(o.status) + '</span>' + (o.rush ? ' <span class="tag">加急</span>' : '') + '</td>'
+    + '<td>' + esc(o.customer) + '</td>'
+    + '<td>' + esc(o.item) + (o.qty > 1 ? ' ×' + o.qty : '') + '</td>'
+    + '<td>' + md(o.due_date) + '</td>'
+    + '<td class="num">' + nt(o.amount) + '</td>'
+    + '<td class="num">' + nt(o.deposit) + '</td>'
+    + '<td>' + esc(o.note) + '</td></tr>').join('');
+}
+
+function renderApprovals(list) {
+  const pend = list.filter((a) => a.status === '待核准');
+  $('pcount').textContent = pend.length ? '（' + pend.length + ' 件）' : '';
+  if (!pend.length) { $('pending').innerHTML = '<div class="empty">目前沒有等核准的事。</div>'; return; }
+  $('pending').innerHTML = '<table><tbody>' + pend.map((a) =>
+    '<tr class="pending"><td class="kind">' + esc(a.kind) + '</td><td>' + esc(a.summary) + '</td><td>申請人：' + esc(a.requested_by) + '</td>'
+    + '<td>#' + a.id + '</td></tr>').join('') + '</tbody></table><div class="empty">核准要店長在 Telegram 按。</div>';
+}
+
+function renderSchedule(s) {
+  $('sdate').textContent = md(s.date) + '｜產能 ' + s.capacity + ' 點（烤箱 ' + s.ovens_ok + '/' + s.ovens_total + '、師傅 ' + s.chefs_present + ' 位）｜已排 ' + s.used + ' 點';
+  const flag = s.is_over ? '<div class="red">超出產能 ' + s.over + ' 點：要決定哪幾張改期</div>' : '<div class="ok">沒有超出產能，還剩 ' + (s.capacity - s.used) + ' 點</div>';
+  const lines = s.lines.length ? '<table><tbody>' + s.lines.map((l) => '<tr><td>' + esc(l.order_id) + '</td><td>' + esc(l.customer) + '</td><td>' + esc(l.item) + (l.qty > 1 ? ' ×' + l.qty : '') + '</td><td class="num">' + l.points + ' 點</td></tr>').join('') + '</tbody></table>' : '<div class="empty">這天沒有排定的訂單。</div>';
+  const mat = Object.keys(s.materials).length ? '<div class="empty">備料：' + Object.entries(s.materials).map(([k, v]) => esc(k) + ' ' + v).join('、') + '</div>' : '';
+  $('sched').innerHTML = flag + lines + mat;
+}
+
+function renderReport(r) {
+  $('rdate').textContent = r.date;
+  $('report').textContent = r.text;
+  const st = [['新成立訂單', r.orders_new + ' 張'], ['金額', 'NT$ ' + nt(r.amount)], ['等核准', (r.pending || []).length + ' 件'], ['被擋下', (r.blocked || []).length + ' 件']];
+  $('stat').innerHTML = st.map(([k, v]) => '<div><b>' + esc(v) + '</b><span>' + esc(k) + '</span></div>').join('');
+}
+
+// Telegram 接通檢查：後端 /api/telegram/status 只回「有沒有放」與「Telegram 說了什麼」，token 不會出現在這裡
+function renderTelegram(t) {
+  if (!t) { $('tg').innerHTML = '<div class="empty">還沒有 Telegram 狀態（/api/telegram/status 還沒做）。</div>'; return; }
+  const sec = t.secrets || {}, wh = t.webhook || {};
+  const secOk = t.state !== 'secret-missing';
+  const tokenBad = t.state === 'token-invalid';
+  const afterToken = secOk && !tokenBad;
+  const hookFail = t.state === 'webhook-set-failed';
+  const hookOk = afterToken && !hookFail;
+  const steps = [
+    [secOk ? 'ok' : 'bad', '① 你貼的 Secret：TELEGRAM_BOT_TOKEN ' + (sec.TELEGRAM_BOT_TOKEN ? '已放' : '沒放')],
+    [!secOk ? 'skip' : tokenBad ? 'bad' : 'ok', '② Telegram 認得這個 bot：' + (!secOk ? '（先放好 Secret）' : tokenBad ? '不認／連不上' : '認得')],
+    [!afterToken ? 'skip' : hookFail ? 'bad' : 'ok', '③ Worker 把網址登記給 Telegram（自動，你不用做）：' + (!afterToken ? '（等上一步）' : hookFail ? '失敗' : t.registered_now ? '剛剛登記好了' : '已登記')],
+    [!hookOk ? 'skip' : t.state === 'delivery-error' ? 'bad' : 'ok', '④ Telegram 送得進來：' + (!hookOk ? '（等上一步）' : t.state === 'delivery-error' ? '失敗' : '沒有送不進來的紀錄')],
+  ];
+  const pill = t.state === 'ok' ? '<span class="pill ok">已接通</span>' : '<span class="pill bad">還沒通</span>';
+  const wait = t.state === 'ok' && wh.pending > 0 ? ' <span class="pill wait">有 ' + wh.pending + ' 則訊息還在排隊</span>' : '';
+  $('tg').innerHTML = '<div class="tg">' + pill + wait + '<ol>' + steps.map(([c, x]) => '<li class="s-' + c + '">' + (c === 'ok' ? '✓ ' : c === 'bad' ? '✗ ' : '– ') + esc(x) + '</li>').join('') + '</ol></div>'
+    + '<div class="' + (t.state === 'ok' ? 'ok' : 'red') + '" style="margin-top:10px">' + esc(t.summary) + '</div>';
+}
+
+const STATION = { service: '門市客服', intake: '接單員', kitchen: '廚房排產', desk: '內勤小幫手', report: '老闆日報', manager: '店長' };
+function renderLogs(logs) {
+  $('lcount').textContent = '共 ' + logs.length + ' 筆，最新 15 筆';
+  const last = logs.slice(-15).reverse();
+  $('logs').innerHTML = last.length ? '<table><tbody>' + last.map((l) =>
+    '<tr><td>' + esc(STATION[l.station] || l.station) + '</td><td class="' + (l.result === 'blocked' ? 'blocked' : '') + '">' + (l.result === 'blocked' ? '擋下' : l.result === 'pending' ? '等核准' : '完成') + '</td><td>' + esc(l.summary) + '</td></tr>').join('') + '</tbody></table>' : '<div class="empty">還沒有日誌。</div>';
+}
+
+async function load() {
+  try {
+    const [o, a, s, r, l, tg] = await Promise.all([api('/api/orders'), api('/api/approvals').catch(() => ({ approvals: [] })), api('/api/schedule').catch(() => null), api('/api/report/daily').catch(() => null), api('/api/logs').catch(() => ({ logs: [] })), api('/api/telegram/status').catch(() => null)]);
+    showError('');
+    renderOrders(o.orders || []);
+    renderApprovals(a.approvals || []);
+    if (s) renderSchedule(s); else $('sched').innerHTML = '<div class="empty">還沒有排產（/api/schedule 還沒做）。</div>';
+    if (r) renderReport(r); else $('report').textContent = '還沒有日報（/api/report/daily 還沒做）。';
+    renderLogs(l.logs || []);
+    renderTelegram(tg);
+  } catch (e) {
+    $('rows').innerHTML = '';
+    $('count').textContent = '';
+    showError('讀不到訂單：' + e.message + '（/api/orders 還沒有後端，或後端出錯）');
+  }
+}
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
