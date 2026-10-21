@@ -25,7 +25,7 @@ description: 會計報帳。專案負責人說「報帳」「我要報帳」「�
 ### 1. 收掃描檔：一律 A4
 
 - 請人把發票**貼在 A4 紙上**再掃描，上傳到 `scans/`。一張 A4 可以貼多張發票，不要重疊、不要蓋住號碼或金額。
-- 收到檔案先檢查是不是 A4 掃描：PDF 看頁面尺寸（約 595×842 pt）；圖片看長寬比約 1:1.414（直放或橫放都可以），可用 `node .claude/scripts/expense-check.mjs --page <檔案>` 檢查。
+- 收到檔案先檢查是不是 A4 掃描：PDF 看頁面尺寸（約 595×842 pt）；圖片看長寬比約 1:1.414（直放或橫放都可以），可用 `node .claude/skills/expense-report/scripts/expense-check.mjs --page <檔案>` 檢查。
 - **不是 A4 的一律退件**：手機隨手拍的單張發票、截圖、長條收據照片都不收。用一句白話請他「貼在 A4 上重掃」，不要自己裁切或硬辨識。
 - 電子發票也一樣：請他印出來（或印證明聯）貼在 A4 上掃描。
 
@@ -49,7 +49,7 @@ description: 會計報帳。專案負責人說「報帳」「我要報帳」「�
 ### 3. 程式檢查
 
 ```bash
-node .claude/scripts/expense-check.mjs course/expenses/<YYYY-MM>/expenses.csv
+node .claude/skills/expense-report/scripts/expense-check.mjs course/expenses/<YYYY-MM>/expenses.csv
 ```
 
 它檢查欄位、日期、發票號碼格式、統編檢查碼、未稅＋稅額＝總額，以及**同一張發票號碼有沒有報過兩次**（同一份 CSV 裡，也比對 `course/expenses/` 底下其他月份）。有錯先回去看掃描檔改正；真的看不清就留空、標 `低`，**不要為了過檢查去改數字**。

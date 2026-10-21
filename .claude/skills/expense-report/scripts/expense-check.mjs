@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 報帳檢查（expense-report 技能用）
-//   node .claude/scripts/expense-check.mjs <expenses.csv>   檢查明細
-//   node .claude/scripts/expense-check.mjs --page <掃描檔>   檢查是不是 A4（PDF／PNG／JPG）
+//   node .claude/skills/expense-report/scripts/expense-check.mjs <expenses.csv>   檢查明細
+//   node .claude/skills/expense-report/scripts/expense-check.mjs --page <掃描檔>   檢查是不是 A4（PDF／PNG／JPG）
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 
