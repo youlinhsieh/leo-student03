@@ -37,6 +37,8 @@
 
 雲端工作區是暫時的，明天接著做要靠 repo 裡的檔案。每個實作段結束、或專案負責人說「存檔」時：把改動存成一個提交（commit），推上他自己的 GitHub repo 目前這條分支，並用一句白話說存了什麼。只推他自己的 repo；不要碰別人的。
 
+**交班紀錄全放 `.claude/handoffs/`**（harness 的一部分，不在 `course/` 底下）。專案負責人說「交班」時，照 ISBAR（Identify、Situation、Background、Assessment、Recommendation）寫一份，檔名 `YYYY-MM-DD-<主題>.md`，寫完一起存檔。新的工作階段開始時，先讀這個資料夾裡最新的一份再動手。
+
 ## 小模型工讀生的底線
 
 - 能用程式判斷的，不交給小模型判斷：價格、前置天數、產能、退訂比例、誰能做什麼。
