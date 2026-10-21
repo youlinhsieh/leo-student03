@@ -3,3 +3,5 @@
 .wrangler/
 node_modules/
 course/logs/red-*.md
+# 發票掃描檔不進 git（expense-report 技能）
+course/expenses/*/scans/
